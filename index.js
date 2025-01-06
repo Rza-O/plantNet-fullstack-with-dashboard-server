@@ -104,6 +104,19 @@ async function run() {
       res.send(result);
     })
 
+    // Get all plants from db
+    app.get('/plants', async (req, res) => {
+      const result = await plantsCollection.find().toArray();
+      res.send(result);
+    })
+
+    // Get a plant by id
+    app.get('/plant/:id', async (req, res) => {
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
+      const result = await plantsCollection.findOne(query);
+      res.send(result);
+    })
 
 
     // Send a ping to confirm a successful connection
