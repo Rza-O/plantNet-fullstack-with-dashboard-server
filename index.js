@@ -50,6 +50,7 @@ async function run() {
   try {
     const usersCollection = client.db('plantNet').collection('users');
     const plantsCollection = client.db('plantNet').collection('plants')
+    const ordersCollection = client.db('plantNet').collection('orders')
 
     // save or update user in db
     app.post('/users/:email', async (req,res) => {
@@ -117,6 +118,28 @@ async function run() {
       const result = await plantsCollection.findOne(query);
       res.send(result);
     })
+
+    // save order to the db
+    app.post('/order', verifyToken, async (req, res) => {
+      const orderInfo = req.body;
+      console.log(orderInfo)
+      const result = await ordersCollection.insertOne(orderInfo);
+      res.send(result);
+    })
+
+    // manage plant quantity
+    app.patch('/plants/quantity/:id', verifyToken, async (req,res) => {
+      const { id } = req.params;
+      const {quantityToUpdate} = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $inc: {quantity: -quantityToUpdate}
+      }
+      const result = await plantsCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    })
+
+
 
 
     // Send a ping to confirm a successful connection
