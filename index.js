@@ -139,7 +139,51 @@ async function run() {
       res.send(result);
     })
 
-
+    // get a customers all orders
+    app.get('/customer-orders/:email', verifyToken, async (req,res) => {
+      const email = req.params.email;
+      const query = { "customer.email": email };
+      const result = await ordersCollection.aggregate([
+      // we matched the query in the orders collection
+        {
+          $match: query,
+        },
+        // we made the plantId as an objectId
+        {
+          $addFields: {
+            plantId: {$toObjectId: '$plantId'}
+          }
+        },
+        // we matched the plant id in plants collection with that object id and return every matched plants in an array name plants
+        {
+          $lookup: {
+            from: "plants",
+            localField: 'plantId',
+            foreignField: '_id',
+            as: 'plants'
+          },
+        },
+        // we unwind the array to expose the object inside
+        {
+          $unwind: '$plants'
+        },
+        // we only kept the necessary fields we needed from the data
+        {
+          $addFields: {
+            name: '$plants.name',
+            category: '$plants.category',
+            image: '$plants.image',
+          }
+        },
+        // we remove the plant object from the data
+        {
+          $project: {
+            plants: 0
+          }
+        }
+      ]).toArray();
+      res.send(result);
+    })
 
 
     // Send a ping to confirm a successful connection
