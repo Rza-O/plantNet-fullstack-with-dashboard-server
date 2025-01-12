@@ -53,7 +53,7 @@ async function run() {
     const ordersCollection = client.db('plantNet').collection('orders')
 
     // save or update user in db
-    app.post('/users/:email', async (req,res) => {
+    app.post('/users/:email', async (req, res) => {
       const { email } = req.params;
       const query = { email };
       const user = req.body;
@@ -63,8 +63,35 @@ async function run() {
         return res.send(isExist);
       }
 
-      const result = await usersCollection.insertOne({...user, role: 'customer',timestamp: Date.now()});
+      const result = await usersCollection.insertOne({ ...user, role: 'customer', timestamp: Date.now() });
       res.send(user);
+    })
+
+    // manage user status and role
+    app.patch('/users/:email', verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+
+      if (!user || user?.status === 'requested') {
+        return res.status(400).send('You have already requested, wait for some time')
+      }
+      
+      const updateDoc = {
+        $set: {
+          status: 'requested'
+        }
+      }
+
+      const result = await usersCollection.updateOne(query, updateDoc);
+      res.send(result)
+    })
+
+    // get user role
+    app.get('/user/role/:email', async (req, res) => {
+      const { email } = req.params;
+      const result = await usersCollection.findOne({ email });
+      res.send({ role: result?.role });
     })
 
 
@@ -99,7 +126,7 @@ async function run() {
 
 
     // save a plant data in db
-    app.post('/plants', verifyToken, async (req,res) => {
+    app.post('/plants', verifyToken, async (req, res) => {
       const plant = req.body;
       const result = await plantsCollection.insertOne(plant);
       res.send(result);
@@ -128,12 +155,12 @@ async function run() {
     })
 
     // manage plant quantity
-    app.patch('/plants/quantity/:id', verifyToken, async (req,res) => {
+    app.patch('/plants/quantity/:id', verifyToken, async (req, res) => {
       const { id } = req.params;
-      const {quantityToUpdate, status} = req.body;
+      const { quantityToUpdate, status } = req.body;
       const filter = { _id: new ObjectId(id) };
       let updateDoc = {
-        $inc: {quantity: -quantityToUpdate}
+        $inc: { quantity: -quantityToUpdate }
       }
       if (status === 'increase') {
         updateDoc = {
@@ -145,18 +172,18 @@ async function run() {
     })
 
     // get a customers all orders
-    app.get('/customer-orders/:email', verifyToken, async (req,res) => {
+    app.get('/customer-orders/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { "customer.email": email };
       const result = await ordersCollection.aggregate([
-      // we matched the query in the orders collection
+        // we matched the query in the orders collection
         {
           $match: query,
         },
         // we made the plantId as an objectId
         {
           $addFields: {
-            plantId: {$toObjectId: '$plantId'}
+            plantId: { $toObjectId: '$plantId' }
           }
         },
         // we matched the plant id in plants collection with that object id and return every matched plants in an array name plants
@@ -195,10 +222,12 @@ async function run() {
       const { id } = req.params;
       const query = { _id: new ObjectId(id) };
       const order = await ordersCollection.findOne(query);
-      if(order.status === 'delivered') return res.status(409).send('Cannot Cancel once the order is delivered')
+      if (order.status === 'Delivered') return res.status(409).send('Cannot Cancel once the order is delivered')
       const result = await ordersCollection.deleteOne(query);
       res.send(result);
     })
+
+
 
 
     // Send a ping to confirm a successful connection
