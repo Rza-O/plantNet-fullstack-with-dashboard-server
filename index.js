@@ -102,6 +102,18 @@ async function run() {
       res.send(result)
     })
 
+    // update user role
+    app.patch('/user/role/:email', verifyToken, async (req, res) => {
+      const { email } = req.params;
+      const { role } = req.body;
+      const filter = { email };
+      const updateDoc = {
+        $set: {role, status: 'Verified'}
+      }
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    })
+
 
     // Generate jwt token
     app.post('/jwt', async (req, res) => {
