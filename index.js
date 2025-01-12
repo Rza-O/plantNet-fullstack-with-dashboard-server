@@ -76,7 +76,7 @@ async function run() {
       if (!user || user?.status === 'requested') {
         return res.status(400).send('You have already requested, wait for some time')
       }
-      
+
       const updateDoc = {
         $set: {
           status: 'requested'
@@ -92,6 +92,14 @@ async function run() {
       const { email } = req.params;
       const result = await usersCollection.findOne({ email });
       res.send({ role: result?.role });
+    })
+
+    // get all user data
+    app.get('/all-users/:email', verifyToken, async (req, res) => {
+      const { email } = req.params;
+      const query = { email: { $ne: email } }
+      const result = await usersCollection.find(query).toArray();
+      res.send(result)
     })
 
 
