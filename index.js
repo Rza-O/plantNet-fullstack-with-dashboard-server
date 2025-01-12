@@ -52,6 +52,33 @@ async function run() {
     const plantsCollection = client.db('plantNet').collection('plants')
     const ordersCollection = client.db('plantNet').collection('orders')
 
+    // verify Admin middleware
+    const verifyAdmin = async (req, res, next) => {
+      // console.log('data from verifyToken middleware --> ', req.user?.email)
+      const email = req.user?.email;
+      const query = { email };
+      const result = await usersCollection.findOne(query);
+      if (!result || result?.role !== 'admin') {
+        return res.status(403).send({message: "Forbidden Access! Admin only actions"})
+      }
+
+      next();
+    }
+
+    // verify seller middleware
+    const verifySeller = async (req, res, next) => {
+      // console.log('data from verifyToken middleware --> ', req.user?.email)
+      const email = req.user?.email;
+      const query = { email };
+      const result = await usersCollection.findOne(query);
+      if (!result || result?.role !== 'seller') {
+        return res.status(403).send({message: "Forbidden Access! Seller only actions"})
+      }
+
+      next();
+    }
+
+
     // save or update user in db
     app.post('/users/:email', async (req, res) => {
       const { email } = req.params;
@@ -95,14 +122,14 @@ async function run() {
     })
 
     // get all user data
-    app.get('/all-users/:email', verifyToken, async (req, res) => {
+    app.get('/all-users/:email', verifyToken, verifyAdmin, async (req, res) => {
       const { email } = req.params;
       const query = { email: { $ne: email } }
       const result = await usersCollection.find(query).toArray();
       res.send(result)
     })
 
-    // update user role
+    // update user role & status
     app.patch('/user/role/:email', verifyToken, async (req, res) => {
       const { email } = req.params;
       const { role } = req.body;
@@ -146,7 +173,7 @@ async function run() {
 
 
     // save a plant data in db
-    app.post('/plants', verifyToken, async (req, res) => {
+    app.post('/plants', verifyToken, verifySeller, async (req, res) => {
       const plant = req.body;
       const result = await plantsCollection.insertOne(plant);
       res.send(result);
