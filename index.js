@@ -59,7 +59,7 @@ async function run() {
       const query = { email };
       const result = await usersCollection.findOne(query);
       if (!result || result?.role !== 'admin') {
-        return res.status(403).send({message: "Forbidden Access! Admin only actions"})
+        return res.status(403).send({ message: "Forbidden Access! Admin only actions" })
       }
 
       next();
@@ -72,7 +72,7 @@ async function run() {
       const query = { email };
       const result = await usersCollection.findOne(query);
       if (!result || result?.role !== 'seller') {
-        return res.status(403).send({message: "Forbidden Access! Seller only actions"})
+        return res.status(403).send({ message: "Forbidden Access! Seller only actions" })
       }
 
       next();
@@ -130,12 +130,12 @@ async function run() {
     })
 
     // update user role & status
-    app.patch('/user/role/:email', verifyToken, async (req, res) => {
+    app.patch('/user/role/:email', verifyToken, verifyAdmin, async (req, res) => {
       const { email } = req.params;
       const { role } = req.body;
       const filter = { email };
       const updateDoc = {
-        $set: {role, status: 'Verified'}
+        $set: { role, status: 'Verified' }
       }
       const result = await usersCollection.updateOne(filter, updateDoc);
       res.send(result);
@@ -169,6 +169,66 @@ async function run() {
       } catch (err) {
         res.status(500).send(err)
       }
+    })
+
+
+    // get inventory data for seller
+    app.get('/plants/seller', verifyToken, verifySeller, async (req, res) => {
+      const { email } = req.user;
+      const result = await plantsCollection.find({ 'seller.email': email }).toArray();
+      res.send(result)
+    })
+
+    // delete a plant by seller
+    app.delete('/plants/:id', verifyToken, verifySeller, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await plantsCollection.deleteOne(query);
+      res.send(result);
+    })
+
+    // aggregating data to show in manage orders for seller
+    app.get('/seller-orders/:email', verifyToken, verifySeller, async (req, res) => {
+      const email = req.params.email;
+      const query = { seller: email };
+      const result = await ordersCollection.aggregate([
+        // we matched the query in the orders collection
+        {
+          $match: query,
+        },
+        // we made the plantId as an objectId
+        {
+          $addFields: {
+            plantId: { $toObjectId: '$plantId' }
+          }
+        },
+        // we matched the plant id in plants collection with that object id and return every matched plants in an array name plants
+        {
+          $lookup: {
+            from: "plants",
+            localField: 'plantId',
+            foreignField: '_id',
+            as: 'plants'
+          },
+        },
+        // we unwind the array to expose the object inside
+        {
+          $unwind: '$plants'
+        },
+        // we only kept the necessary fields we needed from the data
+        {
+          $addFields: {
+            name: '$plants.name',
+          }
+        },
+        // we remove the plant object from the data
+        {
+          $project: {
+            plants: 0
+          }
+        }
+      ]).toArray();
+      res.send(result);
     })
 
 
